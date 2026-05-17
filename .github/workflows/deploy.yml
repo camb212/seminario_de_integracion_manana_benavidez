@@ -38,16 +38,16 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run tests
-          working-directory: modulo2/shopapi
-          env:
-            SECRET_KEY: django-insecure-test-key
-            DB_NAME: postgres
-            DB_USER: postgres
-            DB_PASSWORD: postgres
-            DB_HOST: localhost
-            DB_PORT: 5432
-          run: |
-            python manage.py test
+      working-directory: modulo2/shopapi
+      env:
+        SECRET_KEY: django-insecure-test-key
+        DB_NAME: postgres
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        DB_HOST: localhost
+        DB_PORT: 5432
+      run: |
+        python manage.py test
 
   deploy:
     needs: test
@@ -76,7 +76,6 @@ jobs:
           set -e
           
           echo '1. Actualizando código...'
-          # FIXED: Navigating to the Git root path to safely run Git pull operations
           cd $DEPLOY_PATH
           git fetch origin
           git reset --hard origin/main
