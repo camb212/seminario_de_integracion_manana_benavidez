@@ -31,7 +31,6 @@ jobs:
       with:
         python-version: '3.12'
 
-    # FIXED: Added working-directory so it finds requirements.txt
     - name: Install dependencies
       working-directory: modulo2/shopapi
       run: |
@@ -39,12 +38,16 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run tests
-      working-directory: modulo2/shopapi
-      env:
-        DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
-        SECRET_KEY: test-secret-key
-      run: |
-        python manage.py test
+          working-directory: modulo2/shopapi
+          env:
+            SECRET_KEY: django-insecure-test-key
+            DB_NAME: postgres
+            DB_USER: postgres
+            DB_PASSWORD: postgres
+            DB_HOST: localhost
+            DB_PORT: 5432
+          run: |
+            python manage.py test
 
   deploy:
     needs: test
