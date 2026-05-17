@@ -1,0 +1,21 @@
+# Core Framework
+Django>=5.0,<5.2
+
+# Database
+psycopg2-binary>=2.9.9
+
+# API & Security
+djangorestframework>=3.15.1
+djangorestframework-simplejwt>=5.3.1
+django-cors-headers>=4.3.1
+
+# Configuration & Environment Variables
+python-decouple>=3.8
+
+# Production Deployment
+gunicorn>=23.0.0
+whitenoise>=6.6.0
+
+# Common Shop/API Essentials (Safety Nets)
+django-filter>=24.2
+Pillow>=10.3.0

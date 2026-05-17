@@ -5,6 +5,8 @@ from decouple import config, Csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 SECRET_KEY    = config('SECRET_KEY')
 DEBUG         = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
