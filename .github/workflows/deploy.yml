@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-   
+
     services:
       postgres:
         image: postgres:13
@@ -22,21 +22,24 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-   
+
     steps:
     - uses: actions/checkout@v4
-   
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
-   
+
+    # FIXED: Added working-directory so it finds requirements.txt
     - name: Install dependencies
+      working-directory: modulo2/shopapi
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-   
+
     - name: Run tests
+      working-directory: modulo2/shopapi
       env:
         DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
         SECRET_KEY: test-secret-key
@@ -47,17 +50,17 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-   
+
     steps:
     - uses: actions/checkout@v4
-   
+
     - name: Setup SSH
       run: |
         mkdir -p ~/.ssh
         echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-   
+
     - name: Deploy to VPS
       env:
         VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -68,27 +71,29 @@ jobs:
       run: |
         ssh $VPS_USER@$VPS_HOST "
           set -e
-         
+          
           echo '1. Actualizando código...'
-          cd $PROJECT_PATH
+          # FIXED: Navigating to the Git root path to safely run Git pull operations
+          cd $DEPLOY_PATH
           git fetch origin
           git reset --hard origin/main
-         
-          echo '2. Activando entorno virtual...'
+          
+          echo '2. Activando entorno virtual y entrando al proyecto...'
+          cd $PROJECT_PATH
           source $VENV_PATH/bin/activate
-         
+          
           echo '3. Instalando dependencias...'
           pip install -r requirements.txt
-         
+          
           echo '4. Aplicando migraciones...'
           python manage.py migrate --noinput
-         
+          
           echo '5. Colectando archivos estáticos...'
           python manage.py collectstatic --noinput --clear
-         
+          
           echo '6. Reiniciando servicios...'
-          systemctl restart gunicorn || true
-          systemctl restart nginx || true
-         
+          sudo systemctl restart gunicorn || true
+          sudo systemctl restart nginx || true
+          
           echo 'Despliegue completado'
         "
