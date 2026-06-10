@@ -25,5 +25,7 @@ urlpatterns = [
     path('auth/token/refresh/', TokenRefreshView.as_view()),
     path('auth/token/verify/',  TokenVerifyView.as_view()),
     path('auth/logout/',        LogoutView.as_view()),
+    path('auth/password-reset/',         PasswordResetRequestView.as_view(), name='auth-password-reset'),       # ← nuevo
+    path('auth/password-reset/confirm/', PasswordResetConfirmView.as_view(), name='auth-password-reset-confirm'), # ← nuevo
     path('', include(router.urls)),
 ]
