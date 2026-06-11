@@ -1,4 +1,3 @@
-# store/models/profile.py
 import uuid
 from pathlib import Path
 from django.db import models

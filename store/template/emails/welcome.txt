@@ -1,4 +1,3 @@
-
 ¡Bienvenido a ShopAPI, {{ username }}!
 
 Tu cuenta ha sido creada exitosamente con el correo {{ email }}.
