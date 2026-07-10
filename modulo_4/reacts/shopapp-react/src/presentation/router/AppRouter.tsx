@@ -1,23 +1,19 @@
 // src/presentation/router/AppRouter.tsx
+
+// 1. PRIMERO: Todos los imports estáticos siempre van arriba
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Suspense, lazy, useEffect } from 'react'
 import { useAuthStore } from '@/presentation/store/auth.store'
 import ProtectedRoute from './ProtectedRoute'
-import AppShell from '@/presentation/components/AppShell'
 import PlaceholderPage from '../pages/PlaceholderPage'
+import AppShell from '../components/AppShell'
 
-// ─── Lazy imports ─────────────────────────────────────────────────────────────
-
-// Auth (sin shell) — reales desde este módulo
+// 2. SEGUNDO: Los imports dinámicos (lazy) van después
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'))
 const RegisterPage = lazy(() => import('../pages/auth/RegisterPage'))
-
-// El resto de páginas todavía no existen: se implementan en módulos posteriores
-// (Catálogo → 4/5, Carrito → 6, Órdenes → 7, Perfil → 8, Admin → 9-13) y cada uno
-// reemplaza aquí su propio <Route> por un lazy import real.
+const CatalogPage = lazy(() => import('../pages/catalog/CatalogPage')) // Integrado desde el Módulo 4
 
 // ─── Loader global ────────────────────────────────────────────────────────────
-
 function PageLoader() {
   return (
     <div className="flex min-h-screen items-center justify-center">
@@ -27,12 +23,9 @@ function PageLoader() {
 }
 
 // ─── Router ───────────────────────────────────────────────────────────────────
-
 export default function AppRouter() {
   const loadSession = useAuthStore((state) => state.loadSession)
 
-  // Cargar la sesión guardada al iniciar la app.
-  // loadSession() restaura los tokens y valida el token con /auth/me/
   useEffect(() => {
     loadSession()
   }, [loadSession])
@@ -41,18 +34,18 @@ export default function AppRouter() {
     <BrowserRouter>
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          {/* ── Rutas de autenticación (sin AppShell) ── */}
+          {/* Rutas de autenticación (sin AppShell) */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* ── Rutas con AppShell ── */}
+          {/* Rutas con AppShell */}
           <Route element={<AppShell />}>
-            {/* Públicas — placeholder hasta el módulo 4/5 */}
-            <Route path="/" element={<PlaceholderPage title="Catálogo — Módulo 4" />} />
-            <Route path="/catalog" element={<PlaceholderPage title="Catálogo — Módulo 4" />} />
+            {/* Públicas — Reemplazados los placeholders por CatalogPage real */}
+            <Route path="/" element={<CatalogPage />} />
+            <Route path="/catalog" element={<CatalogPage />} />
             <Route path="/products/:id" element={<PlaceholderPage title="Detalle de producto — Módulo 5" />} />
 
-            {/* Requieren autenticación — placeholder hasta los módulos 6, 7 y 8 */}
+            {/* Requieren autenticación */}
             <Route
               path="/cart"
               element={
@@ -86,7 +79,7 @@ export default function AppRouter() {
               }
             />
 
-            {/* Requieren autenticación + rol staff — placeholder hasta los módulos 9 a 13 */}
+            {/* Requieren autenticación + rol staff */}
             <Route
               path="/admin"
               element={
