@@ -12,6 +12,7 @@ import AppShell from '../components/AppShell'
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'))
 const RegisterPage = lazy(() => import('../pages/auth/RegisterPage'))
 const CatalogPage = lazy(() => import('../pages/catalog/CatalogPage')) // Integrado desde el Módulo 4
+const CheckoutPage = lazy(() => import('../pages/orders/CheckoutPage')) // ¡Agregado aquí!
 
 // ─── Loader global ────────────────────────────────────────────────────────────
 function PageLoader() {
@@ -51,6 +52,15 @@ export default function AppRouter() {
               element={
                 <ProtectedRoute>
                   <PlaceholderPage title="Carrito — Módulo 6" />
+                </ProtectedRoute>
+              }
+            />
+            {/* Nueva ruta protegida para el Checkout */}
+            <Route
+              path="/orders/new"
+              element = {
+                <ProtectedRoute>
+                  <CheckoutPage />
                 </ProtectedRoute>
               }
             />

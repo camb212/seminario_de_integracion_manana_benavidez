@@ -1,22 +1,53 @@
-// src/infrastructure/adapters/axios-category.repository.ts
+// src/infrastructure/adapters/axios-order.repository.ts
 import { apiClient } from '@/infrastructure/http/axios-client'
 import { parseApiError } from '@/infrastructure/http/parse-api-error'
-import type { CategoryRepository } from '@/domain/ports/category.repository'
-import type { Category } from '@/domain/entities/category.entity'
+import type { OrderRepository } from '@/domain/ports/order.repository'
+import type { Order } from '@/domain/entities/order.entity'
 import type { PaginatedResult } from '@/domain/entities/paginated-result.entity'
 
-export class AxiosCategoryRepository implements CategoryRepository {
-  /** * GET /categories/ — Obtiene el listado plano de categorías.
-   * Solicita un page_size alto (100) para saltarse temporalmente la paginación 
-   * y servir los filtros del catálogo público en una sola petición.
-   */
-  async getCategories(): Promise<Category[]> {
+export class AxiosOrderRepository implements OrderRepository {
+  async getOrders(page = 1): Promise<PaginatedResult<Order>> {
     try {
-      const { data } = await apiClient.get<PaginatedResult<Category>>('/categories/', {
-        params: { page_size: 100 },
+      const { data } = await apiClient.get<PaginatedResult<Order>>('/orders/', {
+        params: { page },
       })
-      
-      return data.results
+      return data
+    } catch (err) {
+      throw parseApiError(err)
+    }
+  }
+
+  async getOrder(id: number): Promise<Order> {
+    try {
+      const { data } = await apiClient.get<Order>(`/orders/${id}/`)
+      return data
+    } catch (err) {
+      throw parseApiError(err)
+    }
+  }
+
+  async createOrder(): Promise<Order> {
+    try {
+      const { data } = await apiClient.post<Order>('/orders/', {})
+      return data
+    } catch (err) {
+      throw parseApiError(err)
+    }
+  }
+
+  async addItem(orderId: number, payload: { product_id: number; quantity: number }): Promise<Order> {
+    try {
+      const { data } = await apiClient.post<Order>(`/orders/${orderId}/add-item/`, payload)
+      return data
+    } catch (err) {
+      throw parseApiError(err)
+    }
+  }
+
+  async confirmOrder(orderId: number): Promise<Order> {
+    try {
+      const { data } = await apiClient.post<Order>(`/orders/${orderId}/confirm/`, {})
+      return data
     } catch (err) {
       throw parseApiError(err)
     }
