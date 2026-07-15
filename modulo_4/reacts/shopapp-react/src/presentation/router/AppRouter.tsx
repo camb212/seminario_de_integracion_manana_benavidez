@@ -20,11 +20,10 @@ const OrderDetailPage = lazy(() => import('../pages/orders/OrderDetailPage'))
 const ProfilePage = lazy(() => import('../pages/profile/ProfilePage'))
 const AdminDashboardPage = lazy(() => import('../pages/admin/AdminDashboardPage'))
 const AdminCategoriesPage = lazy(() => import('../pages/admin/AdminCategoriesPage'))
-
-
+const AdminProductsPage = lazy(() => import('../pages/admin/AdminProductsPage'))
 
 // El resto de páginas todavía no existen: se implementan en módulos posteriores
-// (Catálogo → 4/5, Carrito → 6, Órdenes → 7, Perfil → 8, Admin → 9-13) y cada uno
+// (Órdenes → 12, Usuarios → 13) y cada uno
 // reemplaza aquí su propio <Route> por un lazy import real.
 
 // ─── Loader global ────────────────────────────────────────────────────────────
@@ -58,13 +57,12 @@ export default function AppRouter() {
 
                     {/* ── Rutas con AppShell ── */}
                     <Route element={<AppShell />}>
-                        {/* Públicas — placeholder hasta el módulo 4/5 */}
+                        {/* Públicas */}
                         <Route path="/products/:id" element={<ProductDetailPage />} />
                         <Route path="/" element={<CatalogPage />} />
                         <Route path="/catalog" element={<CatalogPage />} />
 
-
-                        {/* Requieren autenticación — placeholder hasta los módulos 6, 7 y 8 */}
+                        {/* Requieren autenticación */}
                         <Route
                             path="/cart"
                             element={
@@ -106,7 +104,7 @@ export default function AppRouter() {
                             }
                         />
 
-                        {/* Requieren autenticación + rol staff — placeholder hasta los módulos 9 a 13 */}
+                        {/* Requieren autenticación + rol staff */}
                         <Route
                             path="/admin"
                             element={
@@ -127,7 +125,7 @@ export default function AppRouter() {
                             path="/admin/products"
                             element={
                                 <ProtectedRoute requireStaff>
-                                    <PlaceholderPage title="Admin Productos — Módulo 11" />
+                                    <AdminProductsPage />
                                 </ProtectedRoute>
                             }
                         />
