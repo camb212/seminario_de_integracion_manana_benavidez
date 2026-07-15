@@ -21,7 +21,9 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": false,
     "noFallthroughCasesInSwitch": true,
-        "paths": {
+
+    /* Path alias */
+    "paths": {
       "@/*": ["./src/*"]
     }
   },

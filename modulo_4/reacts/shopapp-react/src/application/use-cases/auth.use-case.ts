@@ -1,18 +1,10 @@
 // src/application/use-cases/auth.use-case.ts
-// src/application/use-cases/auth.use-case.ts
-import type { AuthRepository } from '@/domain/ports/auth.repository'
-import type { AuthSession } from '@/domain/ports/auth.repository'
+import type { AuthRepository, AuthSession } from '@/domain/ports/auth.repository'
 import type { LoginDto } from '../dtos/login.dto'
 import type { RegisterDto } from '../dtos/register.dto'
 
 export class AuthUseCase {
-  // 1. Declaramos la propiedad explícitamente en la clase
-  private readonly authRepository: AuthRepository
-
-  // 2. La asignamos de forma tradicional en el constructor
-  constructor(authRepository: AuthRepository) {
-    this.authRepository = authRepository
-  }
+  constructor(private readonly authRepository: AuthRepository) {}
 
   login(dto: LoginDto): Promise<AuthSession> {
     return this.authRepository.login(dto.username, dto.password)
