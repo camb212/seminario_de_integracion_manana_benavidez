@@ -1,73 +1,47 @@
-// src/infrastructure/adapters/axios-order.repository.ts
+// src/infrastructure/adapters/axios-user.repository.ts
 import { apiClient } from '@/infrastructure/http/axios-client'
 import { parseApiError } from '@/infrastructure/http/parse-api-error'
-import type { OrderRepository } from '@/domain/ports/order.repository'
-import type { Order } from '@/domain/entities/order.entity'
+import type { UserRepository } from '@/domain/ports/user.repository'
+import type { AdminUser } from '@/domain/entities/admin-user.entity'
 import type { PaginatedResult } from '@/domain/entities/paginated-result.entity'
-import type { OrderStats } from '@/domain/entities/order-stats.entity'
-import type { OrderStatus } from '@/domain/enums/order-status.enum'
 
-export class AxiosOrderRepository implements OrderRepository {
-  async getOrders(page = 1, status?: OrderStatus): Promise<PaginatedResult<Order>> {
+// ... (tus otras importaciones existentes como User, UpdateProfileDto, etc.)
+
+export class AxiosUserRepository implements UserRepository {
+  
+  // ── Métodos existentes (Módulo 8 - Perfil, ej: getProfile, updateProfile) ──
+  // ...
+  // ...
+
+  // ── Nuevos métodos para la administración de usuarios (Módulo 13) ──
+
+  async getUsers(page = 1, search?: string): Promise<PaginatedResult<AdminUser>> {
     try {
       const params: Record<string, string | number> = { page }
-      if (status) params.status = status
-      const { data } = await apiClient.get<PaginatedResult<Order>>('/orders/', { params })
+      if (search) params.search = search
+      const { data } = await apiClient.get<PaginatedResult<AdminUser>>('/users/', { params })
       return data
     } catch (err) {
       throw parseApiError(err)
     }
   }
 
-  async getOrder(id: number): Promise<Order> {
+  async updateUserStaffStatus(id: number, isStaff: boolean): Promise<AdminUser> {
     try {
-      const { data } = await apiClient.get<Order>(`/orders/${id}/`)
+      const { data } = await apiClient.patch<AdminUser>(`/users/${id}/`, { is_staff: isStaff })
       return data
     } catch (err) {
       throw parseApiError(err)
     }
   }
 
-  async createOrder(): Promise<Order> {
+  async toggleUserActive(id: number): Promise<{ is_active: boolean }> {
     try {
-      const { data } = await apiClient.post<Order>('/orders/', {})
-      return data
-    } catch (err) {
-      throw parseApiError(err)
-    }
-  }
-
-  async addItem(orderId: number, payload: { product_id: number; quantity: number }): Promise<Order> {
-    try {
-      const { data } = await apiClient.post<Order>(`/orders/${orderId}/add-item/`, payload)
-      return data
-    } catch (err) {
-      throw parseApiError(err)
-    }
-  }
-
-  async confirmOrder(orderId: number): Promise<Order> {
-    try {
-      const { data } = await apiClient.post<Order>(`/orders/${orderId}/confirm/`, {})
-      return data
-    } catch (err) {
-      throw parseApiError(err)
-    }
-  }
-  
-  async getStats(): Promise<OrderStats> {
-    try {
-      const { data } = await apiClient.get<OrderStats>('/orders/stats/')
-      return data
-    } catch (err) {
-      throw parseApiError(err)
-    }
-  }
-
-  async updateOrderStatus(id: number, status: OrderStatus): Promise<Order> {
-    try {
-      const { data } = await apiClient.post<Order>(`/orders/${id}/update-status/`, { status })
-      return data
+      const { data } = await apiClient.post<{ message: string; is_active: boolean }>(
+        `/users/${id}/toggle-active/`,
+        {},
+      )
+      return { is_active: data.is_active }
     } catch (err) {
       throw parseApiError(err)
     }
