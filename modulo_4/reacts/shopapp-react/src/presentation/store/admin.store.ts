@@ -1,265 +1,330 @@
-// src/presentation/store/admin.store.ts
-import { create } from 'zustand'
-import { dashboardUseCase } from '@/infrastructure/factories/dashboard.factory'
-import { categoryUseCase } from '@/infrastructure/factories/category.factory'
-import { productUseCase } from '@/infrastructure/factories/product.factory'
-import { orderUseCase } from '@/infrastructure/factories/order.factory'
-import { userUseCase } from '@/infrastructure/factories/user.factory'
+// src/presentation/pages/admin/AdminUsersPage.tsx
+import { useEffect, useRef, useState } from 'react'
+import { Search, ShieldCheck, User as UserIcon } from 'lucide-react'
+import { toast } from 'sonner'
+import { AdminShell } from '@/presentation/components/AdminShell'
+import { useAdminStore } from '@/presentation/store/admin.store'
+import { useAuthStore } from '@/presentation/store/auth.store'
+import { getDisplayName } from '@/domain/services/user.service'
 import { ApiException } from '@/domain/exceptions/api.exception'
-import type { AdminStats } from '@/domain/entities/admin-stats.entity'
-import type { Category } from '@/domain/entities/category.entity'
-import type { Product } from '@/domain/entities/product.entity'
-import type { Order } from '@/domain/entities/order.entity'
-import type { OrderStatus } from '@/domain/enums/order-status.enum'
+import { formatDate } from '@/presentation/utils/formatters'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/presentation/components/ui/table'
+import { Badge } from '@/presentation/components/ui/badge'
+import { Button } from '@/presentation/components/ui/button'
+import { Input } from '@/presentation/components/ui/input'
+import { Skeleton } from '@/presentation/components/ui/skeleton'
+import { Switch } from '@/presentation/components/ui/switch'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/presentation/components/ui/alert-dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/presentation/components/ui/tooltip'
 import type { AdminUser } from '@/domain/entities/admin-user.entity'
-import type { CreateCategoryDto } from '@/application/dtos/create-category.dto'
-import type { UpdateCategoryDto } from '@/application/dtos/update-category.dto'
-import type { CreateProductDto } from '@/application/dtos/create-product.dto'
-import type { UpdateProductDto } from '@/application/dtos/update-product.dto'
 
-interface AdminState {
-  stats: AdminStats | null
-  isLoadingStats: boolean
-  statsError: string | null
+const PAGE_SIZE = 10 // tamaño de página por defecto de StandardPagination (backend)
+const DEBOUNCE_MS = 300 // mismo debounce usado en la búsqueda pública (módulo 5) y en productos (módulo 11)
 
-  categories: Category[]
-  isLoadingCategories: boolean
-  categoriesError: string | null
-
-  products: Product[]
-  productsTotal: number
-  isLoadingProducts: boolean
-  productsError: string | null
-
-  adminOrders: Order[]
-  ordersTotal: number
-  isLoadingOrders: boolean
-  ordersError: string | null
-  ordersStatusFilter: OrderStatus | ''
-  ordersPage: number
-
-  adminUsers: AdminUser[]
-  usersTotal: number
-  isLoadingUsers: boolean
-  usersError: string | null
+/** Datos del cambio de rol pendiente de confirmar en el AlertDialog. */
+interface PendingStaffChange {
+  userId: number
+  username: string
+  newValue: boolean
 }
 
-interface AdminActions {
-  fetchStats(): Promise<void>
+export default function AdminUsersPage() {
+  const adminUsers = useAdminStore((s) => s.adminUsers)
+  const isLoadingUsers = useAdminStore((s) => s.isLoadingUsers)
+  const usersTotal = useAdminStore((s) => s.usersTotal)
+  const fetchAdminUsers = useAdminStore((s) => s.fetchAdminUsers)
+  const updateUserStaffStatus = useAdminStore((s) => s.updateUserStaffStatus)
+  const toggleUserActive = useAdminStore((s) => s.toggleUserActive)
 
-  fetchCategories(): Promise<void>
-  createCategory(dto: CreateCategoryDto): Promise<void>
-  updateCategory(id: number, dto: UpdateCategoryDto): Promise<void>
-  deleteCategory(id: number): Promise<void>
+  // El usuario en sesión se obtiene del auth store (módulo 3) para la auto-protección.
+  const currentUserId = useAuthStore((s) => s.user?.user_id)
 
-  fetchProducts(page?: number, search?: string): Promise<void>
-  createProduct(dto: CreateProductDto): Promise<void>
-  updateProduct(id: number, dto: UpdateProductDto): Promise<void>
-  deleteProduct(id: number): Promise<void>
-  restockProduct(id: number, quantity: number): Promise<number>
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  fetchAdminOrders(): Promise<void>
-  setOrdersStatusFilter(status: OrderStatus | ''): void
-  setOrdersPage(page: number): void
-  updateOrderStatus(id: number, status: OrderStatus): Promise<void>
+  const [pendingStaff, setPendingStaff] = useState<PendingStaffChange | null>(null)
+  const [togglingActiveId, setTogglingActiveId] = useState<number | null>(null)
 
-  fetchAdminUsers(page?: number, search?: string): Promise<void>
-  updateUserStaffStatus(id: number, isStaff: boolean): Promise<void>
-  toggleUserActive(id: number): Promise<void>
+  const totalPages = Math.max(1, Math.ceil(usersTotal / PAGE_SIZE))
+
+  // Debounce del buscador — mismo patrón que AdminProductsPage (módulo 11).
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1)
+    }, DEBOUNCE_MS)
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [search])
+
+  useEffect(() => {
+    fetchAdminUsers(page, debouncedSearch)
+  }, [fetchAdminUsers, page, debouncedSearch])
+
+  // El switch de staff abre el AlertDialog en lugar de actuar directamente;
+  // solo se guarda la intención, la acción ocurre en handleConfirmStaff.
+  function handleStaffToggleIntent(user: AdminUser, newValue: boolean) {
+    setPendingStaff({ userId: user.id, username: user.username, newValue })
+  }
+
+  async function handleConfirmStaff() {
+    if (!pendingStaff) return
+    try {
+      await updateUserStaffStatus(pendingStaff.userId, pendingStaff.newValue)
+    } catch (err) {
+      const message = err instanceof ApiException ? err.detail : 'No se pudo actualizar el rol.'
+      toast.error('Error', { description: message })
+    } finally {
+      setPendingStaff(null)
+    }
+  }
+
+  // El switch de activo no requiere confirmación: el cambio es reversible
+  // (basta con volver a pulsar el switch) y de menor impacto que el rol de staff.
+  async function handleActiveToggle(user: AdminUser) {
+    setTogglingActiveId(user.id)
+    try {
+      await toggleUserActive(user.id)
+    } catch (err) {
+      const message = err instanceof ApiException ? err.detail : 'No se pudo cambiar el estado.'
+      toast.error('Error', { description: message })
+    } finally {
+      setTogglingActiveId(null)
+    }
+  }
+
+  const isSelf = (userId: number) => userId === currentUserId
+  const skeletonRows = Array.from({ length: 8 })
+
+  return (
+    <AdminShell>
+      <TooltipProvider>
+        <div className="space-y-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Usuarios</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {usersTotal} {usersTotal === 1 ? 'usuario registrado' : 'usuarios registrados'}
+              </p>
+            </div>
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por usuario o email…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Usuario</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Nombre completo</TableHead>
+                  <TableHead>Órdenes</TableHead>
+                  <TableHead className="w-28 text-center">Rol</TableHead>
+                  <TableHead className="w-28 text-center">Estado</TableHead>
+                  <TableHead className="w-36">Miembro desde</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoadingUsers ? (
+                  skeletonRows.map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 7 }).map((__, j) => (
+                        <TableCell key={j}>
+                          <Skeleton className="h-5 w-full" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : adminUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                      No se encontraron usuarios con ese criterio de búsqueda.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  adminUsers.map((user) => {
+                    const self = isSelf(user.id)
+                    const activeToggling = togglingActiveId === user.id
+
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                              <UserIcon className="h-4 w-4" />
+                            </div>
+                            <span className="text-sm font-medium">{user.username}</span>
+                            {self && (
+                              <Badge variant="outline" className="h-5 px-1 text-xs">
+                                Tú
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
+                        <TableCell className="text-sm">{getDisplayName(user)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{user.num_orders}</TableCell>
+
+                        <TableCell>
+                          <div className="flex flex-col items-center gap-1.5">
+                            {user.is_staff ? (
+                              <Badge className="gap-1 bg-purple-100 text-xs text-purple-700 hover:bg-purple-100">
+                                <ShieldCheck className="h-3 w-3" />
+                                Staff
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs">
+                                Cliente
+                              </Badge>
+                            )}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <Switch
+                                    checked={user.is_staff}
+                                    disabled={self}
+                                    onCheckedChange={(val) => handleStaffToggleIntent(user, val)}
+                                    aria-label={`Cambiar rol de ${user.username}`}
+                                    className="data-[state=checked]:bg-purple-600"
+                                  />
+                                </span>
+                              </TooltipTrigger>
+                              {self && <TooltipContent>No puedes cambiar tu propio rol</TooltipContent>}
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex flex-col items-center gap-1.5">
+                            {user.is_active ? (
+                              <Badge variant="outline" className="border-green-300 text-xs text-green-700">
+                                Activo
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="border-red-300 text-xs text-red-600">
+                                Inactivo
+                              </Badge>
+                            )}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <Switch
+                                    checked={user.is_active}
+                                    disabled={self || activeToggling}
+                                    onCheckedChange={() => handleActiveToggle(user)}
+                                    aria-label={`${user.is_active ? 'Desactivar' : 'Activar'} cuenta de ${user.username}`}
+                                    className="data-[state=checked]:bg-green-600"
+                                  />
+                                </span>
+                              </TooltipTrigger>
+                              {self && <TooltipContent>No puedes desactivar tu propia cuenta</TooltipContent>}
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(user.date_joined)}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Página {page} de {totalPages}</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <AlertDialog open={pendingStaff !== null} onOpenChange={(open) => !open && setPendingStaff(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar cambio de rol</AlertDialogTitle>
+              <AlertDialogDescription>
+                {pendingStaff?.newValue
+                  ? `¿Deseas otorgar permisos de administrador (staff) a "${pendingStaff?.username}"? Este usuario podrá acceder al panel de administración y gestionar órdenes, productos y otros usuarios.`
+                  : `¿Deseas remover los permisos de administrador (staff) de "${pendingStaff?.username}"? Este usuario ya no podrá acceder al panel de administración.`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmStaff}
+                className={
+                  pendingStaff?.newValue
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : 'bg-destructive hover:bg-destructive/90'
+                }
+              >
+                {pendingStaff?.newValue ? 'Otorgar permisos' : 'Remover permisos'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </TooltipProvider>
+    </AdminShell>
+
+    // ── Agregar a AdminActions ──
+uploadProductImage(id: number, file: File): Promise<void>
+
+// ── Agregar a la implementación del store ──
+async uploadProductImage(id, file) {
+  try {
+    const updated = await productUseCase.uploadImage(id, file)
+    set({ products: get().products.map((p) => (p.id === id ? updated : p)) })
+  } catch (err) {
+    throw err instanceof ApiException ? err : new Error('No se pudo subir la imagen.')
+  }
+},
+  )
 }
-
-export const useAdminStore = create<AdminState & AdminActions>((set, get) => ({
-  stats: null,
-  isLoadingStats: false,
-  statsError: null,
-
-  categories: [],
-  isLoadingCategories: false,
-  categoriesError: null,
-
-  products: [],
-  productsTotal: 0,
-  isLoadingProducts: false,
-  productsError: null,
-
-  adminOrders: [],
-  ordersTotal: 0,
-  isLoadingOrders: false,
-  ordersError: null,
-  ordersStatusFilter: '',
-  ordersPage: 1,
-
-  adminUsers: [],
-  usersTotal: 0,
-  isLoadingUsers: false,
-  usersError: null,
-
-  async fetchStats() {
-    set({ isLoadingStats: true, statsError: null })
-    try {
-      const stats = await dashboardUseCase.getStats()
-      set({ stats })
-    } catch {
-      set({ statsError: 'No se pudieron cargar las estadísticas.' })
-    } finally {
-      set({ isLoadingStats: false })
-    }
-  },
-
-  async fetchCategories() {
-    set({ isLoadingCategories: true, categoriesError: null })
-    try {
-      const categories = await categoryUseCase.getCategories()
-      set({ categories })
-    } catch {
-      set({ categoriesError: 'No se pudieron cargar las categorías.' })
-    } finally {
-      set({ isLoadingCategories: false })
-    }
-  },
-
-  async createCategory(dto) {
-    try {
-      const category = await categoryUseCase.createCategory(dto)
-      set({ categories: [...get().categories, category] })
-    } catch (err) {
-      throw err instanceof ApiException ? err : new Error('No se pudo crear la categoría.')
-    }
-  },
-
-  async updateCategory(id, dto) {
-    try {
-      const updated = await categoryUseCase.updateCategory(id, dto)
-      set({ categories: get().categories.map((c) => (c.id === id ? updated : c)) })
-    } catch (err) {
-      throw err instanceof ApiException ? err : new Error('No se pudo actualizar la categoría.')
-    }
-  },
-
-  async deleteCategory(id) {
-    try {
-      await categoryUseCase.deleteCategory(id)
-      set({ categories: get().categories.filter((c) => c.id !== id) })
-    } catch (err) {
-      throw err instanceof ApiException ? err : new Error('No se pudo eliminar la categoría.')
-    }
-  },
-
-  async fetchProducts(page = 1, search = '') {
-    set({ isLoadingProducts: true, productsError: null })
-    try {
-      const data = await productUseCase.getProducts({ search }, page)
-      set({ products: data.results, productsTotal: data.count })
-    } catch {
-      set({ productsError: 'No se pudieron cargar los productos.' })
-    } finally {
-      set({ isLoadingProducts: false })
-    }
-  },
-
-  async createProduct(dto) {
-    try {
-      const product = await productUseCase.createProduct(dto)
-      set({ products: [product, ...get().products], productsTotal: get().productsTotal + 1 })
-    } catch (err) {
-      throw err instanceof ApiException ? err : new Error('No se pudo crear el producto.')
-    }
-  },
-
-  async updateProduct(id, dto) {
-    try {
-      const updated = await productUseCase.updateProduct(id, dto)
-      set({ products: get().products.map((p) => (p.id === id ? updated : p)) })
-    } catch (err) {
-      throw err instanceof ApiException ? err : new Error('No se pudo actualizar el producto.')
-    }
-  },
-
-  async deleteProduct(id) {
-    try {
-      await productUseCase.deleteProduct(id)
-      set({
-        products: get().products.filter((p) => p.id !== id),
-        productsTotal: get().productsTotal - 1,
-      })
-    } catch (err) {
-      throw err instanceof ApiException ? err : new Error('No se pudo eliminar el producto.')
-    }
-  },
-
-  async restockProduct(id, quantity) {
-    try {
-      const result = await productUseCase.restockProduct(id, quantity)
-      set({
-        products: get().products.map((p) => (p.id === id ? { ...p, stock: result.new_stock } : p)),
-      })
-      return result.new_stock
-    } catch (err) {
-      throw err instanceof ApiException ? err : new Error('No se pudo actualizar el stock.')
-    }
-  },
-
-  async fetchAdminOrders() {
-    const { ordersPage, ordersStatusFilter } = get()
-    set({ isLoadingOrders: true, ordersError: null })
-    try {
-      const data = await orderUseCase.getOrders(ordersPage, ordersStatusFilter || undefined)
-      set({ adminOrders: data.results, ordersTotal: data.count })
-    } catch {
-      set({ ordersError: 'No se pudieron cargar las órdenes.' })
-    } finally {
-      set({ isLoadingOrders: false })
-    }
-  },
-
-  setOrdersStatusFilter(status) {
-    set({ ordersStatusFilter: status, ordersPage: 1 })
-  },
-
-  setOrdersPage(page) {
-    set({ ordersPage: page })
-  },
-
-  async updateOrderStatus(id, status) {
-    try {
-      const updated = await orderUseCase.updateOrderStatus(id, status)
-      set({ adminOrders: get().adminOrders.map((o) => (o.id === id ? updated : o)) })
-    } catch (err) {
-      throw err instanceof ApiException ? err : new Error('No se pudo actualizar el estado de la orden.')
-    }
-  },
-
-  // ── Usuarios (módulo 13) ─────────────────────────────────────────────────
-
-  async fetchAdminUsers(page = 1, search = '') {
-    set({ isLoadingUsers: true, usersError: null })
-    try {
-      const data = await userUseCase.getUsers(page, search || undefined)
-      set({ adminUsers: data.results, usersTotal: data.count })
-    } catch {
-      set({ usersError: 'No se pudieron cargar los usuarios.' })
-    } finally {
-      set({ isLoadingUsers: false })
-    }
-  },
-
-  async updateUserStaffStatus(id, isStaff) {
-    try {
-      const updated = await userUseCase.updateUserStaffStatus(id, isStaff)
-      set({ adminUsers: get().adminUsers.map((u) => (u.id === id ? updated : u)) })
-    } catch (err) {
-      throw err instanceof ApiException ? err : new Error('No se pudo actualizar el rol del usuario.')
-    }
-  },
-
-  async toggleUserActive(id) {
-    try {
-      const { is_active } = await userUseCase.toggleUserActive(id)
-      set({
-        adminUsers: get().adminUsers.map((u) => (u.id === id ? { ...u, is_active } : u)),
-      })
-    } catch (err) {
-      throw err instanceof ApiException ? err : new Error('No se pudo cambiar el estado del usuario.')
-    }
-  },
-}))
