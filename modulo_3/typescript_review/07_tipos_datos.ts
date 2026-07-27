@@ -22,14 +22,14 @@ console.log(Number.isNaN(0 / 0));    // true
 // Concepto puro
 const simple: string = "Hola TypeScript";
 const doble: string = 'También funciona';
-const template: string = Hola ${"mundo"}; // template literal
+const template: string = `Hola ${"mundo"}`; // template literal
 
 const nombre: string = "Ana";
 const edad: number = 28;
 
 // Interpolación: embebe expresiones dentro de ${}
-const saludo: string = Hola, ${nombre}. Tienes ${edad} años.;
-const mayoria: string = Eres ${edad >= 18 ? "mayor" : "menor"} de edad.;
+const saludo: string = `Hola, ${nombre}. Tienes ${edad} años.`;
+const mayoria: string = `Eres ${edad >= 18 ? "mayor" : "menor"} de edad.`;
 
 // Multilínea sin caracteres de escape
 const mensaje: string = `

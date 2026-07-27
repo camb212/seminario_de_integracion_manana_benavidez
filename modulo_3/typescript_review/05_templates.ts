@@ -16,20 +16,10 @@ console.log(total);
 // Precio con IVA: $1428.00
 
 // Multi-línea — sin concatenación ni \n
-let servidor: string= "web-02";
-let estadoServidor: boolean=true
-let uptime: number=99.5;
-
 const reporte: string = `
 === Reporte del sistema ===
 Servidor : web-01
 Estado   : activo
 Uptime   : 99.9%
 `;
-const reporte2: string = `
-=== Reporte del sistema ===
-Servidor : ${servidor}
-Estado   : ${servidor? "Activa":"Inactivo"}
-Uptime   : ${uptime}%
-`;
-console.log(reporte2);
+console.log(reporte);

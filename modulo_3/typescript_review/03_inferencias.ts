@@ -1,6 +1,6 @@
 // ── Anotación explícita ───────────────────────────────────────────────────
 // Tú le dices a TS cuál es el tipo.
-const puerto: number = 8080;
+const puerto1: number = 8080;
 const host: string = "localhost";
 const activo: boolean = true;
 
@@ -26,6 +26,4 @@ codigo = "OK";  // válido
 // 3. Parámetros de funciones (TS no puede inferirlos):
 function ping(host: string, intentos: number): string {
   return `Ping a ${host} — ${intentos} intento(s)`;
-}
-
-tarjeta : 90.88
+} 

@@ -23,7 +23,10 @@ const total = subtotal - descuento;  // 1350
 const usuario = "  admin@corp.com  ";
 console.log(usuario.trim().toLowerCase()); // "admin@corp.com"
 console.log(email.includes("empresa"));    // true
-console.log(email.split("@")[1]);          // "empresa.com"
+console.log(email.split("@")[1]); 
+console.log(email.split("@"));
+let personas: string = "Pablo;Marmol;25;12-12-2012"
+console.log(personas.split(";"));          // "Pablo"
 
 // ── Lógica con boolean ────────────────────────────────────────────────────
 const puedeAcceder: boolean = estaActivo && !requiereAuth;

@@ -4,15 +4,15 @@ type Producto = {
   nombre: string;
   precio: number;
   disponible: boolean;
-  regalo: boolean;
+  existencia: number;
 };
 
 const catalogo: Producto[] = [
-  { id: 1, nombre: "Laptop",  precio: 999,  disponible: true, regalo: false },
-  { id: 2, nombre: "Mouse",   precio: 25,   disponible: true, regalo: false },
-  { id: 3, nombre: "Monitor", precio: 350,  disponible: false, regalo: true },
-  { id: 4, nombre: "Teclado", precio: 120,  disponible: true, regalo: false },
-  { id: 5, nombre: "Webcam",  precio: 85,   disponible: true, regalo: true },
+  { id: 1, nombre: "Laptop",  precio: 999,  disponible: true, existencia: 4 },
+  { id: 2, nombre: "Mouse",   precio: 25,   disponible: true, existencia: 2 },
+  { id: 3, nombre: "Monitor", precio: 350,  disponible: false, existencia: 0 },
+  { id: 4, nombre: "PC-GAMER", precio: 1500,  disponible: true, existencia: 3 },
+  { id: 5, nombre: "Celular", precio: 200,  disponible: false, existencia: 0 },
 ];
 
 // TypeScript sabe que cada "p" es de tipo Producto
@@ -22,14 +22,7 @@ const masBarato: Producto | undefined = catalogo.reduce((min, p) =>
   p.precio < min.precio ? p : min
 );
 
-// Imprime los nombres de los productos
-console.log(nombres);                                    // ["Laptop", "Mouse", "Monitor", "Teclado", "Webcam"]
-console.log(masBarato?.nombre);                          // "Mouse"
-console.log(disponibles.length);                         // 4
-console.log("Catálogo completo:", catalogo);
-const cuartoElemento = catalogo[3];
-if (cuartoElemento) {
-  console.log("El 4to elemento existe:", cuartoElemento.nombre);
-} else {
-  console.log("El 4to elemento no existe");
-}
+console.log(nombres);                  // ["Laptop", "Mouse", "Monitor"]
+console.log(masBarato?.nombre);       // "Mouse"
+console.log(disponibles.length);      // 2      // true
+console.log(catalogo[4].existencia) 
